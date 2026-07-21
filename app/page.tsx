@@ -137,26 +137,36 @@ export default function TopChallenge() {
       setTimeLeft(10); 
     } else {
       setStep('saving');
+      
       const timeTaken = Math.floor((Date.now() - startTime) / 1000);
 
       try {
         const setRes = await fetch(`${SUPABASE_URL}/rest/v1/tournament_settings?id=eq.1&select=current_week`, { headers });
         const currentWeek = (await setRes.json())[0].current_week;
 
-        await fetch(`${SUPABASE_URL}/rest/v1/participants`, {
+        // 🟢 إرسال النتيجة إلى قاعدة البيانات
+        const saveRes = await fetch(`${SUPABASE_URL}/rest/v1/participants`, {
           method: 'POST',
           headers: { ...headers, 'Prefer': 'return=minimal' },
           body: JSON.stringify({
             jaco_username: username,
-            jaco_id: jacoId, // يتم حفظه في قاعدة البيانات بالنص الأصلي
+            jaco_id: jacoId,
             score: latestScore,
             total_time_ms: timeTaken,
             week_number: currentWeek
           })
         });
+
+        // 🟢 إذا رفضت قاعدة البيانات الحفظ لأي سبب، نعطي تنبيهاً ولا نعلق
+        if (!saveRes.ok) {
+          throw new Error("فشل الحفظ في قاعدة البيانات");
+        }
+
         setStep('finished'); 
       } catch (error) {
         console.error(error);
+        alert("⚠️ حدث خطأ في الشبكة أثناء حفظ النتيجة! يرجى المحاولة مرة أخرى.");
+        setStep('login'); // إعادة اللاعب للبداية إذا فشل الحفظ لكي لا يعلق
       }
     }
   };
