@@ -36,7 +36,7 @@ export default function AdminDashboard() {
     }
   }, [isAuthenticated]);
 
-  const handleLogin = (e) => {
+  const handleLogin = (e: any) => {
     e.preventDefault();
     if (loginUser === 'top' && loginPass === 'Tt112233') {
       setIsAuthenticated(true);
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
     } catch (e) {}
   };
 
-  const saveSettings = async (e) => {
+  const saveSettings = async (e: any) => {
     e.preventDefault(); setIsSaving(true);
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/tournament_settings?id=eq.1`, { method: 'PATCH', headers, body: JSON.stringify({ start_day: settings.start_day, start_time: settings.start_time, end_day: settings.end_day, end_time: settings.end_time }) });
