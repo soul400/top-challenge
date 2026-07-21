@@ -25,10 +25,8 @@ export default function TopChallenge() {
   const [score, setScore] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   
-  // حساب الوقت الكلي للمتسابق لكسر التعادل
   const [startTime, setStartTime] = useState(null);
 
-  // جلب الأسئلة عند فتح الموقع
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
@@ -40,10 +38,7 @@ export default function TopChallenge() {
             const options = [q.option_a, q.option_b, q.option_c, q.option_d].sort(() => Math.random() - 0.5);
             return { question: q.question_text, options, correct: q.correct_answer };
           });
-          // خلط ترتيب الأسئلة
           setQuestions(formattedQuestions.sort(() => Math.random() - 0.5));
-        } else {
-          // إذا لم يجد أسئلة، لا يزعج اللاعب، بل ينتظر حتى يسجل الدخول ليخبره
         }
         setIsLoading(false);
       } catch (error) {
@@ -53,7 +48,6 @@ export default function TopChallenge() {
     fetchQuestions();
   }, []);
 
-  // مؤقت السؤال الواحد (10 ثواني)
   useEffect(() => {
     if (step === 'quiz' && !isPaused) {
       if (timeLeft > 0) {
@@ -65,20 +59,20 @@ export default function TopChallenge() {
     }
   }, [timeLeft, step, isPaused]);
 
-  // دالة بدء الاختبار مع جميع الفحوصات الأمنية والزمنية
   const startQuiz = async (e: any) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // 1. جلب التواريخ ورقم الأسبوع من الخادم
+      // 🟢 تشفير الـ ID لتجنب تعطل الخادم إذا أدخل اللاعب رموزاً مثل & أو # أو ?
+      const safeJacoId = encodeURIComponent(jacoId);
+
       const setRes = await fetch(`${SUPABASE_URL}/rest/v1/tournament_settings?id=eq.1&select=*`, { headers, cache: 'no-store' });
       const settingsData = await setRes.json();
       
       if (settingsData.length > 0) {
         const { start_datetime, end_datetime, current_week } = settingsData[0];
         
-        // 2. التحقق من الوقت الحالي مقارنة بالتاريخ المجدول
         const now = new Date();
         const startTournamentTime = new Date(start_datetime);
         const endTournamentTime = new Date(end_datetime);
@@ -93,28 +87,24 @@ export default function TopChallenge() {
           setIsLoading(false); return;
         }
 
-        // 3. التحقق من القائمة السوداء (الحظر)
-        const banRes = await fetch(`${SUPABASE_URL}/rest/v1/banned_users?jaco_id=eq.${jacoId}&select=jaco_id`, { headers, cache: 'no-store' });
+        const banRes = await fetch(`${SUPABASE_URL}/rest/v1/banned_users?jaco_id=eq.${safeJacoId}&select=jaco_id`, { headers, cache: 'no-store' });
         if ((await banRes.json()).length > 0) {
           alert("⛔ عذراً، لقد تم حظرك نهائياً من المشاركة في بطولات TOP.");
           setIsLoading(false); return;
         }
 
-        // 4. التحقق من عدم مشاركة اللاعب مسبقاً في هذا الأسبوع
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/participants?jaco_id=eq.${jacoId}&week_number=eq.${currentWeek}&select=*`, { headers, cache: 'no-store' });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/participants?jaco_id=eq.${safeJacoId}&week_number=eq.${currentWeek}&select=*`, { headers, cache: 'no-store' });
         if ((await res.json()).length > 0) {
           alert("❌ لقد شاركت بالفعل في مسابقة هذا الأسبوع. انتظر الأسبوع القادم.");
           setIsLoading(false); return;
         }
         
-        // 5. التحقق من وجود أسئلة نشطة
         if (questions.length === 0) {
            alert("🛠️ المسابقة مفتوحة ولكن الإدارة لم تقم بسحب الأسئلة بعد. حاول لاحقاً.");
            setIsLoading(false); return;
         }
       }
 
-      // كل شيء سليم، ابدأ الاختبار وابدأ المؤقت الكلي
       setStartTime(Date.now());
       setStep('quiz');
       setTimeLeft(10);
@@ -147,8 +137,6 @@ export default function TopChallenge() {
       setTimeLeft(10); 
     } else {
       setStep('saving');
-      
-      // حساب الوقت المستغرق بالثواني
       const timeTaken = Math.floor((Date.now() - startTime) / 1000);
 
       try {
@@ -160,9 +148,9 @@ export default function TopChallenge() {
           headers: { ...headers, 'Prefer': 'return=minimal' },
           body: JSON.stringify({
             jaco_username: username,
-            jaco_id: jacoId,
+            jaco_id: jacoId, // يتم حفظه في قاعدة البيانات بالنص الأصلي
             score: latestScore,
-            total_time_ms: timeTaken, // حفظ الوقت لكسر التعادل
+            total_time_ms: timeTaken,
             week_number: currentWeek
           })
         });
@@ -185,8 +173,6 @@ export default function TopChallenge() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center font-sans relative overflow-hidden" dir="rtl">
-      
-      {/* إضاءة الخلفية */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-yellow-600/10 rounded-full blur-[150px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-yellow-900/10 rounded-full blur-[150px] pointer-events-none"></div>
 
@@ -196,9 +182,7 @@ export default function TopChallenge() {
             <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-yellow-700 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(234,179,8,0.4)]">
               <span className="text-4xl">🦅</span>
             </div>
-            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 tracking-wider">
-              TOP
-            </h1>
+            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 tracking-wider">TOP</h1>
             <p className="text-gray-400 text-sm mt-2 font-bold tracking-widest uppercase">Weekly Challenge</p>
           </div>
           
@@ -209,7 +193,8 @@ export default function TopChallenge() {
             </div>
             <div>
               <label className="text-xs text-gray-400 block mb-1">رقم اللاعب (JACO ID)</label>
-              <input type="number" required placeholder="أدخل الـ ID" onChange={(e) => setJacoId(e.target.value)} className="w-full bg-[#111] border border-gray-800 text-white rounded-xl p-3 focus:outline-none focus:border-yellow-500 transition" />
+              {/* 🟢 تم تحويل type إلى text ليقبل حروف ورموز وعربي وإنجليزي */}
+              <input type="text" required placeholder="أدخل الـ ID (حروف، أرقام، رموز)" onChange={(e) => setJacoId(e.target.value)} className="w-full bg-[#111] border border-gray-800 text-white rounded-xl p-3 focus:outline-none focus:border-yellow-500 transition" />
             </div>
             
             <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-black text-lg p-4 rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.3)] mt-6 transition-all transform hover:scale-[1.02]">
@@ -222,26 +207,13 @@ export default function TopChallenge() {
       {step === 'quiz' && questions.length > 0 && (
         <div className="relative z-10 w-[90%] max-w-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl transition-all duration-300">
           <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
-            <span className="text-yellow-500 font-bold bg-yellow-900/20 px-4 py-1 rounded-full border border-yellow-500/30">
-              السؤال {currentQuestionIndex + 1} من {questions.length}
-            </span>
-            <span className={`font-black text-3xl transition-all ${timeLeft <= 3 ? 'text-red-500 animate-pulse scale-110 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' : 'text-white'}`}>
-              ⏱️ {timeLeft}
-            </span>
+            <span className="text-yellow-500 font-bold bg-yellow-900/20 px-4 py-1 rounded-full border border-yellow-500/30">السؤال {currentQuestionIndex + 1} من {questions.length}</span>
+            <span className={`font-black text-3xl transition-all ${timeLeft <= 3 ? 'text-red-500 animate-pulse scale-110 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' : 'text-white'}`}>⏱️ {timeLeft}</span>
           </div>
-          
           <h2 className="text-2xl font-bold mb-10 leading-relaxed text-white text-center">{questions[currentQuestionIndex].question}</h2>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {questions[currentQuestionIndex].options.map((option, index) => (
-              <button 
-                key={index} 
-                onClick={() => handleAnswerClick(option)} 
-                disabled={selectedAnswer !== null} 
-                className={`border p-4 rounded-xl text-center text-lg font-bold transition-all duration-300 ${getButtonClass(option)}`}
-              >
-                {option}
-              </button>
+              <button key={index} onClick={() => handleAnswerClick(option)} disabled={selectedAnswer !== null} className={`border p-4 rounded-xl text-center text-lg font-bold transition-all duration-300 ${getButtonClass(option)}`}>{option}</button>
             ))}
           </div>
         </div>
