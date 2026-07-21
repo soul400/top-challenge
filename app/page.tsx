@@ -142,12 +142,13 @@ export default function TopChallenge() {
 
       try {
         const setRes = await fetch(`${SUPABASE_URL}/rest/v1/tournament_settings?id=eq.1&select=current_week`, { headers });
-        const currentWeek = (await setRes.json())[0].current_week;
+        const settingsData = await setRes.json();
+        // التأكد من وجود بيانات الأسبوع لتفادي التعليق
+        const currentWeek = settingsData.length > 0 ? settingsData[0].current_week : 1;
 
-        // 🟢 إرسال النتيجة إلى قاعدة البيانات
         const saveRes = await fetch(`${SUPABASE_URL}/rest/v1/participants`, {
           method: 'POST',
-          headers: { ...headers, 'Prefer': 'return=minimal' },
+          headers: { ...headers, 'Prefer': 'return=representation' }, // طلب تفاصيل الخطأ من القاعدة
           body: JSON.stringify({
             jaco_username: username,
             jaco_id: jacoId,
@@ -157,16 +158,18 @@ export default function TopChallenge() {
           })
         });
 
-        // 🟢 إذا رفضت قاعدة البيانات الحفظ لأي سبب، نعطي تنبيهاً ولا نعلق
+        // 🟢 كاشف الأخطاء السحري: إذا رفضت القاعدة الحفظ، ستقول لنا لماذا!
         if (!saveRes.ok) {
-          throw new Error("فشل الحفظ في قاعدة البيانات");
+          const errorDetails = await saveRes.json();
+          alert(`🛑 الخزنة ترفض حفظ النتيجة!\nالسبب التقني: ${errorDetails.message || errorDetails.details}\n(الرجاء إرسال هذه الرسالة للمبرمج)`);
+          setStep('login'); // فك التعليق والعودة للبداية
+          return;
         }
 
         setStep('finished'); 
       } catch (error) {
-        console.error(error);
-        alert("⚠️ حدث خطأ في الشبكة أثناء حفظ النتيجة! يرجى المحاولة مرة أخرى.");
-        setStep('login'); // إعادة اللاعب للبداية إذا فشل الحفظ لكي لا يعلق
+        alert(`⚠️ حدث خطأ في الاتصال بالإنترنت: ${error.message}`);
+        setStep('login');
       }
     }
   };
