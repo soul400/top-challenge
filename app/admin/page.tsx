@@ -18,8 +18,6 @@ export default function AdminDashboard() {
   const [allParticipants, setAllParticipants] = useState([]);
   const [bannedUsers, setBannedUsers] = useState([]);
   const [stats, setStats] = useState({ activeQuestions: 0, remainingInBank: 0 });
-  
-  // 🟢 تحديث حالة الإعدادات لتدعم التاريخ الكامل
   const [settings, setSettings] = useState({ current_week: 1, start_datetime: '', end_datetime: '' });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +33,7 @@ export default function AdminDashboard() {
     }
   }, [isAuthenticated]);
 
-  const handleLogin = (e) => {
+  const handleLogin = (e: any) => {
     e.preventDefault();
     if (loginUser === 'top' && loginPass === 'Tt112233') {
       setIsAuthenticated(true);
@@ -58,8 +56,7 @@ export default function AdminDashboard() {
       setBannedUsers(await bannedRes.json());
       const setData = await setRes.json();
       if (setData.length > 0) { 
-        // تنسيق التاريخ ليتوافق مع input datetime-local
-        const formatForInput = (isoString) => isoString ? new Date(isoString).toISOString().slice(0, 16) : '';
+        const formatForInput = (isoString: any) => isoString ? new Date(isoString).toISOString().slice(0, 16) : '';
         setSettings({
           current_week: setData[0].current_week,
           start_datetime: formatForInput(setData[0].start_datetime),
@@ -104,7 +101,7 @@ export default function AdminDashboard() {
     });
   }, [allParticipants]);
 
-  const handleBanUser = async (user) => {
+  const handleBanUser = async (user: any) => {
     if (!window.confirm(`⚠️ تحذير: هل أنت متأكد من حظر [${user.name}] بشكل نهائي؟`)) return;
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/banned_users`, { method: 'POST', headers, body: JSON.stringify({ jaco_id: user.id, jaco_username: user.name }) });
@@ -112,21 +109,21 @@ export default function AdminDashboard() {
     } catch (e) {}
   };
 
-  const handleUnbanUser = async (jacoId) => {
+  const handleUnbanUser = async (jacoId: any) => {
     if (!window.confirm("هل تريد فك الحظر عن هذا اللاعب؟")) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/banned_users?jaco_id=eq.${jacoId}`, { method: 'DELETE', headers });
+      // 🟢 تشفير الـ ID في حال احتوى على مسافات أو رموز
+      const safeJacoId = encodeURIComponent(jacoId);
+      await fetch(`${SUPABASE_URL}/rest/v1/banned_users?jaco_id=eq.${safeJacoId}`, { method: 'DELETE', headers });
       fetchAdminData();
     } catch (e) {}
   };
 
-  const saveSettings = async (e) => {
+  const saveSettings = async (e: any) => {
     e.preventDefault(); setIsSaving(true);
     try {
-      // 🟢 حفظ التواريخ الكاملة في قاعدة البيانات
       const startISO = new Date(settings.start_datetime).toISOString();
       const endISO = new Date(settings.end_datetime).toISOString();
-
       await fetch(`${SUPABASE_URL}/rest/v1/tournament_settings?id=eq.1`, { 
         method: 'PATCH', 
         headers: { ...headers, 'Prefer': 'return=minimal' }, 
@@ -258,34 +255,17 @@ export default function AdminDashboard() {
               <h2 className="text-3xl font-bold text-white mb-8">الجدولة وإعدادات النظام ⚙️</h2>
               <form onSubmit={saveSettings} className="bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/5 p-8 rounded-3xl mb-8">
                 <div className="space-y-6 mb-6">
-                  
-                  {/* 🟢 التحديث الجديد: اختيار التاريخ والوقت معاً */}
                   <div className="bg-black/30 p-4 rounded-xl border border-gray-800">
                     <h4 className="text-green-400 font-bold mb-3 flex items-center gap-2">🟢 موعد الفتح (تاريخ ووقت)</h4>
-                    <input 
-                      type="datetime-local" 
-                      required
-                      value={settings.start_datetime} 
-                      onChange={e=>setSettings({...settings, start_datetime: e.target.value})} 
-                      className="w-full bg-[#111] border border-gray-800 p-3 rounded-xl text-white outline-none focus:border-green-500" 
-                    />
+                    <input type="datetime-local" required value={settings.start_datetime} onChange={e=>setSettings({...settings, start_datetime: e.target.value})} className="w-full bg-[#111] border border-gray-800 p-3 rounded-xl text-white outline-none focus:border-green-500" />
                   </div>
-
                   <div className="bg-black/30 p-4 rounded-xl border border-gray-800">
                     <h4 className="text-red-400 font-bold mb-3 flex items-center gap-2">🔴 موعد الإغلاق (تاريخ ووقت)</h4>
-                    <input 
-                      type="datetime-local" 
-                      required
-                      value={settings.end_datetime} 
-                      onChange={e=>setSettings({...settings, end_datetime: e.target.value})} 
-                      className="w-full bg-[#111] border border-gray-800 p-3 rounded-xl text-white outline-none focus:border-red-500" 
-                    />
+                    <input type="datetime-local" required value={settings.end_datetime} onChange={e=>setSettings({...settings, end_datetime: e.target.value})} className="w-full bg-[#111] border border-gray-800 p-3 rounded-xl text-white outline-none focus:border-red-500" />
                   </div>
-                  
                 </div>
                 <button type="submit" disabled={isSaving} className="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-black py-4 rounded-xl">{isSaving ? 'جاري الحفظ...' : 'حفظ الإعدادات 💾'}</button>
               </form>
-              
               <div className="bg-red-900/10 border border-red-900/30 p-8 rounded-3xl">
                 <h3 className="text-2xl font-bold text-red-500 mb-2">منطقة الخطر ⚠️</h3>
                 <button onClick={handleStartNewWeek} className="bg-red-600 hover:bg-red-500 text-white font-bold px-8 py-4 rounded-xl mt-4">إغلاق الأسبوع وبدء أسبوع جديد 🚀</button>
