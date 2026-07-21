@@ -62,7 +62,7 @@ export default function TopChallenge() {
     }
   }, [timeLeft, step, isPaused]);
 
-  const startQuiz = async (e) => {
+  const startQuiz = async (e: any) => {
     e.preventDefault();
     setIsLoading(true);
 
